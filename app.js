@@ -1,4 +1,5 @@
 const { Strategy } = require('passport-google-oauth2')
+const cookieSession = require('cookie-session')
 const passport = require('passport')
 const express = require('express')
 const { log } = require('console')
@@ -7,7 +8,6 @@ const https = require('https')
 require('dotenv').config()
 const fs = require('fs')
 const app = express()
-const cookieSession = require('cookie-session')
 
 const config = {
 	CLIENT_ID: process.env.client_id, 
@@ -15,7 +15,7 @@ const config = {
 	COOKIE_KEY_1: process.env.cookie_key_1,
 	COOKIE_KEY_2: process.env.cookie_key_2
 }
-log(process.env.client_id)
+
 const authOption = {
 	callbackURL: '/auth/google/callback',
 	clientID: config.CLIENT_ID,
@@ -30,28 +30,29 @@ const verifyCallback = (accessToken, refreshToken, profile, done) => {
 passport.use(new Strategy(authOption, verifyCallback))
 
 //save session to cookies
-passport.serializeUser((user, done)=>{
-	done(null , user.id)
+passport.serializeUser((user, done) => {
+	done(null, user.id)
 })
 
 
 //read session from cookies
-passport.deserializeUser((id, done)=>{
-	done(null , id) 
+passport.deserializeUser((id, done) => {
+	done(null, id) 
 })
 
-
 app.use(helmet())
+
 app.use(cookieSession({
-	name:'session',
-	maxAge:24 * 60 * 60 * 1000,
-	keys:[config.COOKIE_KEY_1, config.COOKIE_KEY_2]
+	name: 'session',
+	maxAge: 24 * 60 * 60 * 1000,
+	keys: [config.COOKIE_KEY_1, config.COOKIE_KEY_2]
 }))
+
 app.use(passport.initialize())
+
 app.use(passport.session())
 
 app.use(express.static('./public'))
-
 
 const checkLogin = (req, res, next) => {
 	log(req.user)
@@ -61,8 +62,6 @@ const checkLogin = (req, res, next) => {
 	}
 	next()
 }
-
-
 
 app.get('/auth/google', passport.authenticate('google', {
 	scope: ['email'],
@@ -76,23 +75,18 @@ app.get('/auth/google/callback', passport.authenticate('google', {
 	log('google called us')
 })
 
-
 app.get('/failure', (req, res) => {
 	res.send('not authorized')
 })
 
 app.get('/auth/logout', (req, res) => {
-req.logout()
-return res.redirect('/')
+	req.logout()
+	return res.redirect('/')
 })
-
-
-
 
 app.get('/secret', checkLogin, (req, res) => {
 	res.send('your secret is 98')
 })
-
 
 https.createServer({
 	cert: fs.readFileSync('cert.pem'),
